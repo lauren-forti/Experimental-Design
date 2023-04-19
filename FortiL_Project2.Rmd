@@ -1,0 +1,119 @@
+---
+title: "Project 2 - Comparative Experiments and Analysis of Variance"
+author: "Lauren Forti"
+date: "10/24/2022"
+output: html_document
+---
+
+## Load dataset
+```{r}
+# read in data
+Portland_Cement <- read.csv("Portland_Cement_Data.csv")
+
+# display first 6 rows
+head(Portland_Cement, 6)
+```
+
+
+
+## Examine data graphically
+```{r}
+# convert mixing to factor
+Portland_Cement$Mixing <- as.factor(Portland_Cement$Mixing)
+
+# get averages
+treatment.means <- with(Portland_Cement, tapply(Strength,Mixing,mean))
+
+# plot stripchart
+stripchart(Strength~Mixing,Portland_Cement, vert=T,method="overplot",pch=1,main="Mixing Technique vs. Cement Strength",xlab="Mixing Technique",ylab=expression(paste("Cement Strength")))
+stripchart(as.numeric(treatment.means)~as.numeric(names(treatment.means)),pch="x",cex=1.5,vert=T,add=T)
+
+# plot boxplot
+boxplot(Strength~Mixing, data=Portland_Cement)
+```
+
+From the graphs, it seems like the different mixing technique do have different effects on strength. Mixing technique 1 and 3 have similar treatment means. Mixing technique 2 and 4 are unique.
+
+
+
+## Test the hypothesis that mixing techniques affect the strength of the cement using α = 0.05
+```{r}
+# calc ANOVA table
+Portland_Cement.rate.aov <-aov(Strength~Mixing, Portland_Cement)
+
+# output results
+summary(Portland_Cement.rate.aov)
+```
+
+The between-treatment mean square is much larger than the within-treatment mean square (258,440 vs 27515). The P-Value is 0.000489, which is smaller than α = 0.05 so the hypothesis should be rejected. At least one of the treatment means is not equal.  
+
+
+
+
+## Construct a normal probability plot of the residuals
+```{r}
+# plot normal qq plot
+plot(Portland_Cement.rate.aov, which=2)
+```
+
+The Normal Q-Q Plot shows that the residuals deviate slightly from the line. From this, we can conclude that is safe to assume that the distribution is relatively normal.
+
+
+
+## Plot the residuals versus the predicted tensile strength
+```{r}
+# plot residuals vs fitted plot
+plot(Portland_Cement.rate.aov, which=1)
+```
+
+The residuals are equally spread around the horizon line. This could mean that there is a linear relationship.
+
+
+## Prepare a scatter plot of the residuals
+```{r}
+# plot scatter plot residuals
+plot(Portland_Cement.rate.aov, which=3)
+```
+
+The line is approximately horizontal. However, the spread increases as the fitted value increases. This indicates that it is not safe to assume homoscedasticity. There is likely heteroscedasticity.
+
+
+
+## Compare treatment means:
+```{r}
+# get groups of mixing techniques to compare
+c1 <- c(1, 0, -1, 0)
+c2 <- c(0, 1, 0, -1)
+c3 <- c(1,-1, 1, 0)
+
+# make contrast vectors -> matrix
+mat <- cbind(c1, c2, c3)
+contrasts(Portland_Cement$Mixing) <- mat
+
+# build ANOVA model
+anova_contrast <- aov(Strength~Mixing, data=Portland_Cement)
+
+# output results
+summary.aov(anova_contrast, split=list(Mixing=list("1 vs 3"=1, "2 vs 4"=2, "1 & 3 vs 2"=3)))
+```
+
+1) In testing the mean strengths of Mixing Technique 1 and Mixing Technique 3 at α = 0.05, the P-value = 0.650146. This is greater than α = 0.05 which means that the means between Mixing Techniques 1 and 3 are not significantly different.
+
+2) In testing the mean strengths of Mixing Technique 2 and Mixing Technique 4 at α = 0.05, the P-value = 5.19e-05. This is less than α = 0.05 which means that the means between Mixing Technique 2 and 4 are significantly different.
+
+3) In testing the average mean strengths of Mixing Technique 1 and Mixing Technique 3 against the mean strength of Mixing Technique 2 at α = 0.05, the P-value = 0.481602. This is greater than α = 0.05 which means that the mean of Mixing Techniques 1 and 3 differ significantly from Mixing Technique 2.
+
+
+
+## Calculate the Power of the analysis given the treatment means are μ1 = 2900 μ2 = 3100 μ3 = 2850 and μ4 = 2680, error variance = 230^2,and α = 0.05
+```{r}
+# given treatment means
+treatment.means <- c(2900, 3100, 2850, 2680)
+
+# calc power
+power.anova.test(groups=4, n=8, between.var=var(treatment.means), within.var=230^2, sig.level=.05)
+```
+
+At n = 8, the power of the analysis of the given treatment means, error variance, and α = 0.05 is 83.2828%. A lower value for n puts the power below 80%.
+\
+\

@@ -1,0 +1,130 @@
+---
+title: "Project 4"
+author: "Lauren Forti"
+date: "11/7/2022"
+output: html_document
+---
+
+
+
+### Read in dataset
+```{r}
+library(readr)
+
+# read in data
+Batteries_Life <- read.csv("Batteries_Life.csv")
+
+# display first 6 rows
+head(Batteries_Life, 6)
+
+# convert brand and device to factors
+Batteries_Life$Brand <- as.factor(Batteries_Life$Brand)
+Batteries_Life$Device <- as.factor(Batteries_Life$Device)
+```
+
+
+
+### ANOVA Test: Main Effects/Interaction
+```{r}
+# perform ANOVA
+Batteries_Life.factors.aov <- aov(Life~Brand*Device, Batteries_Life)
+
+# output results
+summary(Batteries_Life.factors.aov)
+
+# get F critical val for Brand
+qf(c(0.05),1,8,lower.tail=FALSE)
+
+# get F critical val for Device
+qf(c(0.05),2,8,lower.tail=FALSE)
+```
+
+The main effects for Brand and Device are significant.  
+
+At α=0.05, the critical value of F for Brand is 5.32. The F Value for Brand is 9.33. Since the critical value of F = 5.32 is less than F = 9.33, the hypothesis should not be rejected. Brand does affect the battery life. 
+
+At α=0.05, the critical value of F for Device is 4.46. The F Value for Device is 130.75. Since the critical value of F = 4.46 is less than F = 130.75, the hypothesis should not be rejected. Device does affect the battery life. 
+
+
+
+### Interaction Plot
+```{r}
+# make interaction plot
+with(Batteries_Life, interaction.plot(Brand, Device, Life, type="b", col=10:12), pch=19, fixed=T, xlab="Brand", ylab="Life")
+```
+
+
+### ANOVA Test: Interaction
+```{r}
+# output results
+summary(Batteries_Life.factors.aov)
+
+# get F critical val for interaction
+qf(c(0.05),2,6,lower.tail=FALSE)
+```
+
+The interaction between Brand and Device is not significant.  
+
+At α=0.05, the critical value of F for interaction between Brand and Device is 5.14. The F Value for the interaction is 0.476. Since the critical value of F = 5.14. is greater than F = 0.476, the hypothesis should be rejected. There is little interaction between Brand and Device. Brand and Device separately have statistical significance.
+
+
+
+### Residual Plots
+```{r}
+library(ggplot2)
+library(lmtest)
+
+# plot normal qq plot
+plot(Batteries_Life.factors.aov, which=2)
+
+# plot scale-location plot
+plot(Batteries_Life.factors.aov, which=3)
+# breusch-pagan test
+bptest(Batteries_Life.factors.aov)
+
+# plot residuals vs fitted plot
+plot(Batteries_Life.factors.aov, which=1)
+
+# append residuals to df
+Batteries_Life$residual <- Batteries_Life.factors.aov$residuals
+
+# plot residuals vs brand
+ggplot(Batteries_Life, aes(x=Brand, y=residual)) +
+  geom_point(size=2, shape=23)+
+  labs(title = "Plot of residuals vs. Brand")
+
+# plot residuals vs device
+ggplot(Batteries_Life, aes(x=Device, y=residual)) +
+  geom_point(size=2, shape=23)+
+  labs(title = "Plot of residuals vs. Device")
+```
+
+From these plots, it is safe to assume that the model is adequate.  
+
+**Normal QQ**  
+The residuals loosely form a line that deviates at the beginning and end. This indicates that there are extreme values at the tails. It is safe to assume that the distribution is relatively normal.  
+
+
+**Scale-Location**  
+The line is slightly horizontal. A Breusch-Pagan Test results in a p-value of 0.035, which is smaller than 0.05. This indicates that it is safe to assume homoscedasticity.  
+
+
+**Residuals vs Fitted**  
+The line is horizontal and the residuals are evenly spread around the horizon line. This indicates that there is a linear relationship present.  
+
+
+
+### Recommendations
+```{r}
+library(emmeans)
+
+# get mean comparisons
+emmeans(Batteries_Life.factors.aov, pairwise ~ Brand | Device)
+```
+
+Brand B should be recommended over Brand A.  
+
+Brand B tends to have a longer battery life across devices looking at the interaction plot and the mean comparisons.  
+\
+\
+\

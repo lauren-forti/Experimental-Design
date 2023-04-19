@@ -1,0 +1,227 @@
+---
+title: 'Project 6: $2^{k}$ Factorial Design'
+author: "Lauren Forti"
+date: "11/20/2022"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+
+# **Part 1: $2^{k}$ Statistical Analysis**
+
+### Setup Data
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(scales)
+
+# data
+A.carb <- c(-1,-1, 1,1, -1,-1, 1,1, -1,-1, 1,1, -1,-1, 1,1)
+B.pressure <- c(-1,-1, -1,-1, 1,1, 1,1, -1,-1, -1,-1, 1,1, 1,1)
+C.speed <- c(-1,-1, -1,-1, -1,-1, -1,-1, 1,1, 1,1, 1,1, 1,1)
+dev <- c(-3,-1, 0,1, -1,0, 2,3, -1,0, 2,1, 1,1, 6,5)
+
+# make df
+bottles <- data.frame(A.carb,B.pressure,C.speed,dev)
+
+# display df
+bottles
+```
+
+
+### Step 1: Estimate Factor Effects
+```{r}
+# convert to factors
+bottles$A.carb <- as.factor(bottles$A.carb)
+bottles$B.pressure <- as.factor(bottles$B.pressure)
+bottles$C.speed <- as.factor(bottles$C.speed)
+
+# build ANOVA
+bottles.full.aov <- aov(dev~A.carb*B.pressure*C.speed, data=bottles)
+
+# get results
+bottles.full.aov.summary <- summary(bottles.full.aov)
+
+# get effects
+bottles.full.effect <- bottles.full.aov.summary[[1]]
+bottles.full.effect <- bottles.full.effect %>% mutate(`Percent Contribution` = (`Sum Sq`/sum(`Sum Sq`))*100)
+
+# output results
+bottles.full.effect
+```
+
+The main effects are the most significant. The two-way interaction has a small effect and the three-way interactions even smaller.  
+
+**Carbonation (A)** has the greatest percent contribution for effects at 46.154%. **Pressure (B)** is 25.962% and **Line Speed (C)** is 15.705%.  
+
+The percent contributions of the two-way interactions' effects are small, totaling to 4.488%. The percent contributions of the two-way interactions' effects is 1.282%.  
+
+
+
+### Step 2: Build Initial Regression Model
+```{r}
+options(scipen=999)
+
+# build full model
+bottles.lm <- lm(dev~A.carb*B.pressure*C.speed, data=bottles)
+
+# output results
+summary(bottles.lm)
+```
+
+The full regression model is:  
+$y = -2 + 2.5*x_{1} + 1.5*x_{2} + 1.5*x_{3} + 0.5*x_{1}*x_{2} - 0.5*x_{1}*x{3} + 2*x_{1}*x_{2}*x_{3} + \epsilon$  
+
+
+
+### Step 3: ANOVA Test (Main Effects & Interaction)
+```{r}
+# output aov results
+bottles.full.aov.summary
+
+# get F critical val for main fx
+qf(c(0.05),1,8,lower.tail=FALSE)
+
+# get F critical val for ab interaction
+qf(c(0.1),1,8,lower.tail=FALSE)
+```
+
+The main effects are significant at α=0.05. The only significant interaction is between **Carbonation (A)** and **Pressure (B)** at α=0.1.  
+
+The F value for the main effects is 5.318. The F value for **Carbonation (A)** is 57.6, the F value for **Pressure (B)** is 32.4, and the F value for **Line Speed (C)** is 19.6. These are all greater than the F value of 5.318 and therefore the main effects have a significant effect on the deviation.  
+
+The F value for the **ab** interaction is 3.458. The F value for the interaction between **Carbonation (A)** and **Pressure (B)** is 3.6, which is greater than the F value of 3.458. This interaction is significant at α=0.1, but not significant at α=0.05.  
+
+
+
+### Step 4: Refine the Model
+```{r}
+# build refined model w/ all two-way
+bottles.lm.re2 <- lm(dev~.+.^2, data=bottles)
+# output results
+summary(bottles.lm.re2)
+
+# build refined model w/ main fx + ab
+bottles.lm.reab <- lm(dev~.+.+A.carb:B.pressure, data=bottles)
+# output results
+summary(bottles.lm.reab)
+
+# build refined model w/ main fx
+bottles.lm.re <- lm(dev~.+., data=bottles)
+# output results
+summary(bottles.lm.re)
+
+# model comparisons
+anova(bottles.lm,bottles.lm.re2,bottles.lm.reab,bottles.lm.re)
+```
+
+Removing the three-way interaction affects the significance of the remaining terms. The regression model refined to main effects and two-way interaction is:  
+$y = -2.5 + 3*x_{1} + \epsilon$  
+In this model, **Carbonation (A)** is the only significant factor at α=0.05. The **ab** interaction between **Carbonation (A)** and **Pressure (B)** are significant at α=0.1. The adjusted $R^{2}$ is 0.8718, making it slightly better than the first, full model.  
+
+Removing the three-way interaction and non-significant two-way interactions leaves the main effects and **ab** interaction. The significance of the two-way interaction did not change enough to make it significant at α=0.05. The adjusted $R^{2}$ 0.8733. This model is better than the full model, but did not improve upon the last.  
+
+Focusing only on the main effects refines the regression model to:  
+$y = -2.5 + 3*x_{1} + 2.25*x_{2} + 1.75*x_{3} + \epsilon$  
+In this model, all the main effects are significant at α=0.05. The adjusted $R^{2}$ is the lowest, at 0.8478. This is the best model out of the four.  
+
+
+
+### Step 5: Residual Analysis
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(lmtest)
+
+# plot normal qq plot
+plot(bottles.lm.re, which=2)
+
+# plot scale-location plot
+plot(bottles.lm.re, which=3)
+# breusch-pagan test
+bptest(bottles.lm.re)
+
+# plot residuals vs fitted plot
+plot(bottles.lm.re, which=1)
+```
+
+From these plots, the final refined model is normally distributed and has homoscedasticity, but there could be a nonlinear relationship present.  
+
+**Normal QQ**  
+The residuals loosely form a line. It is safe to assume that the distribution is relatively normal.  
+
+**Scale-Location**  
+The line is slightly horizontal. A Breusch-Pagan Test results in a p-value of 0.9478, which is greater than 0.05. This indicates that it is safe to assume homoscedasticity.  
+
+**Residuals vs Fitted**  
+The line is not exactly horizontal, but the residuals are evenly spread around the horizon line. This indicates that there could be a nonlinear relationship present.  
+
+
+
+### Step 6: Interpret Results
+```{r message=FALSE, warning=FALSE}
+library(gridExtra)
+library(grid)
+
+## main fx plots
+# get means
+A.carb.mean <- bottles %>% group_by(A.carb) %>% summarise(dev.mean=mean(dev))
+B.pressure.mean <- bottles %>% group_by(B.pressure) %>% summarise(dev.mean=mean(dev))
+C.speed.mean <- bottles %>% group_by(C.speed) %>% summarise(dev.mean=mean(dev))
+
+# plot standard error of means
+ggplot1 <- ggplot(A.carb.mean, aes(x=A.carb, y=dev.mean, group=1)) + 
+     geom_line(color="cadetblue3", size=1) +
+     geom_point(color="cadetblue4", size=1.2)
+ggplot2 <-ggplot(B.pressure.mean, aes(x=B.pressure, y=dev.mean, group=1)) + 
+    geom_line(color="brown3", size=1) +
+    geom_point(color="brown4", size=1.2)
+ggplot3 <-ggplot(C.speed.mean, aes(x=C.speed, y=dev.mean, group=1)) + 
+    geom_line(color="chartreuse3", size=1) +
+    geom_point(color="chartreuse4", size=1.2)
+
+# display plots
+grid.arrange(ggplot1,ggplot2,ggplot3, nrow = 1, top=textGrob("Main Effect Plots",gp=gpar(fontsize=18,font=3)))
+
+
+
+# two-way interaction plots
+#opar <- par(mfrow=c(3,1),cex=.8)
+# interaction between carbonation and Pressure
+with(bottles, interaction.plot(A.carb,B.pressure,dev,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Carbonation",ylab="Average Deviation"))
+title (main = "Interaction between Carbonation and Pressure")
+
+# interaction between carbonation and speed
+with(bottles, interaction.plot(A.carb,C.speed,dev,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Carbonation",ylab="Average Deviation"))
+title (main = "Interaction between Carbonation and Speed")
+
+# interaction between pressure and speed
+with(bottles, interaction.plot(B.pressure,C.speed,dev,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Pressure",ylab="Average Deviation"))
+title (main = "Interaction between Pressure and Speed")
+
+
+
+## three-way interaction plots
+opar <- par(mfrow=c(2,1),cex=.8)
+
+Pressure_25 <- bottles %>% filter(B.pressure=="1")
+Pressure_30 <- bottles %>% filter(B.pressure=="-1")
+
+with(Pressure_25, interaction.plot(A.carb,C.speed,dev,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Carbonation",ylab="Average Deviation"))
+title (main = "Pressure=25")
+
+with(Pressure_30, interaction.plot(A.carb,C.speed,dev,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Carbonation",ylab="Average Deviation"))
+title (main = "Pressure=30")
+```
+
+The main effects, **Carbonation (A)**, **Pressure (B)**, and **Line Speed (C)** have an effect on deviation. This is reflected in the low adjusted $R^{2}$ of this model.  
+
+The three-way interaction and two-way interactions, including the interaction between **Carbonation (A)** and **Pressure (B)**, do not have a significant effect on the deviation. This is illustrated by the parallel lines in the interaction plots and the adjusted $R^{2}$ of the other models.    
+\
+\
+\

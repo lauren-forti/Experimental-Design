@@ -1,0 +1,140 @@
+---
+title: 'Project 5: General Factor Design'
+author: "Lauren Forti"
+date: "11/15/2022"
+output: html_document
+---
+
+
+### Read in dataset
+```{r warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+
+# read in data
+Yield <- read.csv("Yield.csv")
+
+# change Day3 to Day2
+Yield$Blocks[Yield$Blocks=="Day3"] <- "Day2"
+
+# display first 6 rows
+head(Yield, 6)
+
+# convert to factors
+Yield$Blocks <- as.factor(Yield$Blocks)
+Yield$Temperature <- as.factor(Yield$Temperature)
+Yield$Pressure <- as.factor(Yield$Pressure)
+```
+
+
+
+### Explore Data Graphically
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+library(gridExtra)
+library(grid)
+
+# get averages for stripcharts
+treatment_p.means <- with(Yield, tapply(Yield,Pressure,mean))
+treatment_t.means <- with(Yield, tapply(Yield,Temperature,mean))
+treatment_b.means <- with(Yield, tapply(Yield,Blocks,mean))
+
+# pressure stripchart
+stripchart(Yield~Pressure, data=Yield, vertical=TRUE, pch=1, main="Yield vs Pressure", xlab="Pressure", ylab="Yield")
+stripchart(as.numeric(treatment_p.means)~as.numeric(names(treatment_p.means)),pch="x",cex=1.5,vert=T,add=T)
+
+# temp stripchart
+stripchart(Yield~Temperature, data=Yield, vertical=TRUE, pch=1, main="Yield vs Temperature", xlab="Temperature", ylab="Yield")
+stripchart(as.numeric(treatment_t.means)~(names(treatment_t.means)),pch="x",cex=1.5,vert=T,add=T)
+
+# blocks stripchart
+stripchart(Yield~Blocks, data=Yield, vertical=TRUE, pch=1, main="Yield vs Blocks", xlab="Temperature", ylab="Blocks")
+stripchart(as.numeric(treatment_b.means)~(names(treatment_b.means)),pch="x",cex=1.5,vert=T,add=T)
+
+# plot boxplots
+boxplot(Yield~Blocks, data=Yield)
+boxplot(Yield~Temperature, data=Yield)
+boxplot(Yield~Pressure, data=Yield)
+```
+
+From the stripcharts and boxplots, it seems like all three factors (Blocks, Temperature, and Pressure) effect the yield.   
+
+
+
+### Are Blocking Factors Necessary?
+```{r}
+# perform ANOVA
+Yield.full.aov <- aov(Yield~Blocks+Temperature+Pressure+Temperature*Pressure, Yield)
+
+# output results
+summary(Yield.full.aov)
+```
+
+Blocking factors are necessary for this experiment. The p-value is 0.0011, which is lower than α=0.05. This means that blocking factors are significant.  
+
+
+
+### ANOVA (Main Effects)
+```{r}
+# get means
+Temperature_mean <- Yield %>% group_by(Temperature) %>% summarise(Yield_mean=mean(Yield))
+Pressure_mean <- Yield %>% group_by(Pressure) %>% summarise(Yield_mean=mean(Yield))
+Blocks_mean <- Yield %>% group_by(Blocks) %>% summarise(Yield_mean=mean(Yield))
+
+# plot standard error of means
+ggplot1 <- ggplot(Temperature_mean, aes(x=Temperature, y=Yield_mean, group=1)) + 
+     geom_line(color="cadetblue3", size=1) +
+     geom_point(color="cadetblue4", size=1.2)
+ggplot2 <-ggplot(Pressure_mean, aes(x=Pressure, y=Yield_mean, group=1)) + 
+    geom_line(color="brown3", size=1) +
+    geom_point(color="brown4", size=1.2)
+ggplot3 <-ggplot(Blocks_mean, aes(x=Blocks, y=Yield_mean, group=1)) + 
+    geom_line(color="chartreuse3", size=1) +
+    geom_point(color="chartreuse4", size=1.2)
+
+# display plots
+grid.arrange(ggplot1,ggplot2,ggplot3, nrow = 1, top=textGrob("Main Effect Plots",gp=gpar(fontsize=18,font=3)))
+
+# perform ANOVA
+Yield.main.aov <- aov(Yield~Temperature*Pressure+Blocks, Yield)
+
+# output ANOVA results
+summary(Yield.main.aov)
+
+# get F critical val for Temperature and Pressure
+qf(c(0.05),2,8,lower.tail=FALSE)
+```
+
+The main effects for Temperature and Pressure are significant.  
+
+At α=0.05, the critical value of F for Temperature is 4.459. The F Value for Temperature is 93.981. Since the critical value of F = 4.459 is less than F = 93.981, the hypothesis should not be rejected. Temperature does affect the yield.  
+
+At α=0.05, the critical value of F for Pressure is 4.459. The F Value for Temperature is 5.184. Since the critical value of F = 4.459 is less than F = 5.184, the hypothesis should not be rejected. Pressure does affect the yield.  
+
+
+
+### Interaction Plot
+```{r}
+# make interaction plot
+with(Yield, interaction.plot(Temperature,Pressure,Yield,type="b",col=10:12
+                                    ,pch=19, fixed=T,xlab="Temperature",ylab="Average Yield"))
+title (main = "Interaction Plot")
+```
+
+
+
+### ANOVA (Main Effects and Interactions)
+```{r}
+# output ANOVA results
+summary(Yield.full.aov)
+
+# get F critical val for Temperature and Pressure interaction
+qf(c(0.05),4,8,lower.tail=FALSE)
+```
+
+The interaction between Temperature and Pressure is not significant.  
+
+At α=0.05, the critical value of F for the interaction between Temperature and Pressure is 3.838. The F Value for the interaction is 2.095. Since the critical value of F = 3.838 is greater than F = 2.095, the hypothesis should be rejected. The interaction between Temperature and Pressure is not significant.  
+\
+\
+\

@@ -1,0 +1,61 @@
+---
+title: "Project 1 - Photoresist Thickness Study"
+author: "Lauren Forti"
+date: "10/18/2022"
+output: html_document
+---
+
+
+# Load in the Data
+```{r}
+Temp95 <- c(11.176, 7.089, 8.097, 11.739, 11.291, 10.759, 6.467, 8.315)
+Temp100 <- c(5.263, 6.748, 7.461, 7.015, 8.133, 7.418, 3.772, 8.963)
+
+# make df
+df <- data.frame(Temp95, Temp100)
+
+# output df
+df
+```
+
+# T-test
+```{r}
+# conduct t-test
+t.test(Temp95, Temp100, var.equal=TRUE)
+```
+
+
+
+# Problem 1
+**Is there evidence to support the claim that the higher baking temperature results in wafers with a lower mean photoresist thickness? Use α = 0.05.**
+
+Yes, there is evidence to support the claim that the higher baking temperature results in wafers with a lower mean photoresist thickness. The null hypothesis should not be rejected at significance level α = 0.05. This is because the p-value is 0.01812 which is lower than the significance level.
+
+
+
+# Problem 2
+**What is the P-value for the test conducted?**
+
+The p-value is 0.01812.
+
+
+
+# Problem 3
+**Find a 95% confidence interval on the difference in means. Provide a practical interpretation of this interval.**
+
+The 95% confidence interval is [0.4995743, 4.5404257]. This means that the maximum difference between the means can be as low as 0.4995743 or as high as 4.5404257.
+
+
+
+# Problem 4
+**Draw dot diagrams and Box-and-whisker plot to assist in interpreting the results from this experiment.**
+
+```{r}
+# plot dot diagram
+df.means <- as.numeric(apply(df,2,mean))
+stripchart(df, xlab=expression("Thickness (kA)"),pch=19)
+arrows(df.means,rep(1.5,2),df.means,c(1.1,1.9),length=.1)
+
+# plot boxplot
+boxplot(df, ylab="Thickness (kA)", las=1)
+```

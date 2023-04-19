@@ -1,0 +1,143 @@
+---
+title: 'Project 3: Experiments with a Single Factor'
+author: "Lauren Forti"
+date: "10/31/2022"
+output: html_document
+---
+
+### Read in dataset
+```{r}
+library(lsmeans)
+
+# read in data
+Grain_Refiners <- read.csv("Grain_Refiners.csv")
+
+# display first 6 rows
+head(Grain_Refiners, 6)
+```
+
+
+
+### Determine which variable is a blocking factor in this experiment and examine Data Graphically using strip charts, box plots, or other charts that can help you check if treatment and block factors affect the grain size.
+```{r}
+# convert stirring rate and furnace to factors
+Grain_Refiners$Stirring.Rate <- as.factor(Grain_Refiners$Stirring.Rate)
+Grain_Refiners$Furnace <- as.factor(Grain_Refiners$Furnace)
+
+### Plotting Grain Size (y)
+# get averages
+treatment_y.means <- with(Grain_Refiners, tapply(y,Stirring.Rate,mean))
+
+# plot stripchart
+stripchart(y~Stirring.Rate,Grain_Refiners, vert=T,method="overplot",pch=1,main="Stirring Rate vs. Grain Size",xlab="Stirring Rate",ylab=expression(paste("Grain Size")))
+stripchart(as.numeric(treatment_y.means)~as.numeric(names(treatment_y.means)),pch="x",cex=1.5,vert=T,add=T)
+
+# plot boxplot
+boxplot(y~Stirring.Rate, data=Grain_Refiners)
+boxplot(y~Furnace, data=Grain_Refiners)
+```
+
+The **Furnace** is the blocking factor. From the boxplots, it seems like furnace affects mean grain size more than the stirring rate.  
+  
+Stirring Rate effects the mean grain size slightly if it is at a rate of 5. The other stirring rates have very similar mean grain sizes.
+Furnace 1 has a significantly greater mean grain size compared to furnaces 2, 3, and 4. The latter three have similar mean grain sizes.  
+
+
+
+### Test the hypothesis that the stirring rate affects grain size at α=0.05.
+```{r}
+# calc ANOVA table
+Grain_Refiners.rate.aov <-aov(y~Furnace+Stirring.Rate, data=Grain_Refiners)
+
+# output results
+summary(Grain_Refiners.rate.aov)
+
+# get F critical val
+qf(c(0.05),3,9,lower.tail=FALSE)
+
+```
+
+At α=0.05, the critical value of F is 3.86. The F Value for Stirring Rate is 0.85. Since the critical value of F = 3.86 is greater than F = 0.85, the hypothesis should be rejected. Stirring rate does not affect the mean grain size.  
+
+
+
+### Construct a normal probability plot of the residuals (Normal Q-Q Plot). What conclusion would you draw about the validity of the Normality assumption?
+```{r}
+# plot normal qq plot
+plot(Grain_Refiners.rate.aov, which=2)
+```
+
+The Normal Q-Q Plot shows that the residuals form a line but deviate from it at the beginning and end. This indicates that there are extreme values at the tails. It is safe to assume that the distribution is relatively normal.  
+
+
+
+### Prepare a scatter plot of the residuals (Scale-Location plot). What conclusion would you draw about the validity of the Homoscedasticity assumption?
+```{r}
+# plot scale-location plot
+plot(Grain_Refiners.rate.aov, which=3)
+
+library(lmtest)
+bptest(Grain_Refiners.rate.aov)
+```
+
+The line is not horizontal and there are large peaks. However, the spread is seemingly random. A Breusch-Pagan Test results in a p-value of 0.6461, which is much larger than 0.05. This indicates that it is not safe to assume homoscedasticity. There is likely heteroscedasticity.  
+
+
+
+### Plot the residuals versus the predicted tensile strength (Residuals vs Fitted). Comment on the plot.
+```{r}
+# plot residuals vs fitted plot
+plot(Grain_Refiners.rate.aov, which=1)
+```
+
+The residuals form a horseshoe shape, implying that there is nonlinear relationship.  
+
+
+
+### What should the process engineers recommend concerning the choice of stirring rate and furnace for this particular grain refiner if the small grain size is desirable?
+```{r}
+### Stirring Rate Contrasts
+# get least square means
+Stirring.Rate.lsm <- lsmeans(Grain_Refiners.rate.aov, "Stirring.Rate")
+
+# output results
+summary(Stirring.Rate.lsm)
+
+# contrasts list
+contrasts_s <- list('5vs10' = c(1, -1, 0, 0),
+                 '5vs15' = c(1, 0, -1, 0),
+                 '5vs20' = c(1, 0, 0, -1),
+                 '10vs15' = c(0, 1, -1, 0),
+                 '10vs20' = c(0, 1, 0, -1),
+                 '15vs20' = c(0, 0, 1, -1)
+                 )
+lsmeans::contrast(Stirring.Rate.lsm, contrasts_s)
+
+
+
+### Furnace Contrasts
+# get least square means
+Furnace.lsm <- lsmeans(Grain_Refiners.rate.aov, "Furnace")
+
+# output results
+summary(Furnace.lsm)
+
+# contrasts list
+contrasts_f <- list('1vs2' = c(1, -1, 0, 0),
+                 '1vs3' = c(1, 0, -1, 0),
+                 '1vs4' = c(1, 0, 0, -1),
+                 '2vs3' = c(0, 1, -1, 0),
+                 '2vs4' = c(0, 1, 0, -1),
+                 '3vs4' = c(0, 0, 1, -1)
+                 )
+lsmeans::contrast(Furnace.lsm, contrasts_f)
+```
+
+The process engineers should recommend further analysis into the furnaces' effects on grain size. Stirring rate does not seem to have a significant effect on grain size.  
+
+All the p-values in the stirring rate's contrasts are well over α=0.05, meaning that there is not a huge difference in the means for Stirring Rates.  
+
+The contrasts for the furnaces indicate that there is a difference in the means for Furnace 1. The p-values (0.0069, 0.0057, 0.0057) are under α=0.05, indicating that there is a difference for Furnace 1. Furnaces 2, 3, and 4 all have similar means based on their high p-values.  
+\
+\
+\
